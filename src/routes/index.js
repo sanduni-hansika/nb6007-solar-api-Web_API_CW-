@@ -7,7 +7,14 @@ const v1 = express.Router();
 
 // 406: this API only produces JSON
 v1.use((req, res, next) => {
-  if (!req.accepts('json')) return next(new ApiError(406, 'NOT_ACCEPTABLE', 'This API only produces application/json.', [{ supported: ['application/json'] }]));
+  if (!req.accepts('json')) {
+    return next(new ApiError(
+      406,
+      'NOT_ACCEPTABLE',
+      'This API only produces JSON.'
+    ));
+  }
+
   next();
 });
 // 415: bodies must be JSON

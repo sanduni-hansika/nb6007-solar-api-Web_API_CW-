@@ -45,7 +45,12 @@ r.route('/')
       const ttl = config.jwt.userTtlSeconds;
       const token = jwt.sign({ token_use: 'user', role: u.role, scope: scopes }, config.jwt.secret,
         { algorithm: 'HS256', subject: `user:${u.id}`, issuer: config.jwt.issuer, audience: config.jwt.audience, expiresIn: ttl });
-      return respond(res, token, ttl, scopes, { type: 'user', id: u.id, role: u.role });
+      return respond(res, token, ttl, scopes, {
+  type: 'user',
+  user_id: u.id,
+  email: u.email,
+  role: u.role
+});
     }
 
     const b = validateBody(body, { meter_id: { type: 'string', required: true, minLength: 1, maxLength: 40 }, device_secret: { type: 'string', required: true, minLength: 1, maxLength: 200 } });

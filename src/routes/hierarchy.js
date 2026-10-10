@@ -133,12 +133,25 @@ r.route('/grid-substations/:id')
     const row = await loadSubstation(cur.id);
     sendJson(req, res, S.substation(row), { lastModified: row.updated_at });
   }))
-  .delete(write, ah(async (req, res) => {
+    .delete(write, ah(async (req, res) => {
     const cur = await loadSubstation(parseId(req.params.id));
     checkIfMatch(req, S.substation(cur));
-    await query('DELETE FROM grid_substations WHERE id = $1', [cur.id]); // 409 via FK if it still has installations
+
+    // Prevent deleting a substation that still has installations.
+    const dependent = await query(
+      'SELECT 1 FROM solar_installations WHERE substation_id = $1 LIMIT 1',
+      [cur.id]
+    );
+
+    if (dependent.rows.length > 0) {
+      throw new ApiError(
+        409,
+        'REFERENCE_CONFLICT',
+        'Cannot delete a substation that still has installations.'
+      );
+    }
+
+    await query('DELETE FROM grid_substations WHERE id = $1', [cur.id]);
     res.status(204).end();
   }))
-  .all(allow('GET', 'PUT', 'PATCH', 'DELETE'));
-
 module.exports = r;
