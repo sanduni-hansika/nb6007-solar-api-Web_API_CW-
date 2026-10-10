@@ -1,0 +1,31 @@
+{
+  "name": "slsea-solar-generation-api",
+  "version": "1.0.0",
+  "description": "NB6007CEM - Real-Time Solar Generation Data API (SLSEA). Node.js + Express + PostgreSQL.",
+  "main": "src/server.js",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/scripts/migrate.js",
+    "seed": "node src/scripts/seed.js",
+    "reseed": "node src/scripts/seed.js --force",
+    "device-secret": "node src/scripts/device-secret.js",
+    "smoke": "node scripts/smoke.js",
+    "test": "node scripts/smoke.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.2",
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.3",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.12.1",
+    "pg": "^8.23.1",
+    "swagger-ui-express": "^5.0.1"
+  }
+}
