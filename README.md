@@ -1,78 +1,85 @@
-# SLSEA Real-Time Solar Generation Data API
+# SLSEA Solar Generation Data API
 
-NB6007CEM Web API Development - Coursework 1. Node.js + Express + PostgreSQL.
-A national REST API (Richardson Maturity Level 2) that acquires and serves real-time and historical generation data from rooftop solar installations in Sri Lanka.
+A RESTful API for managing rooftop solar installations and electricity generation data across Sri Lanka. Developed for **NB6007CEM – Web API Development Coursework 1** using Node.js, Express.js, and PostgreSQL hosted on Neon.
 
-* **Write-clients:** metering devices authenticate *as their installation* and can only `POST` readings for it.
-* **Read-clients:** SLSEA users (national / provincial / district) read data **scoped to their jurisdiction**.
-* **Live data:** a built-in simulator makes every active installation report a reading each 15 minutes (and back-fills any gap), so *last-known-reading* is always current.
+## Features
 
-Live API docs (Swagger UI): `/api-docs` · OpenAPI JSON: `/openapi.json` · Health: `/health`
+- Manage provinces, districts, grid substations, and solar installations.
+- Store and retrieve historical generation readings.
+- Access installation readings and district generation summaries.
+- Authenticate users and enforce role-based, geographical access controls.
+- Restrict metering devices to submitting readings for their assigned installations.
+- Validate requests and return appropriate HTTP status codes.
+- Interactive Swagger documentation and health monitoring.
 
-## Quick start (local)
-```bash
-npm install
-cp .env.example .env        # edit DATABASE_URL, JWT_SECRET, SEED_PASSWORD
-npm start                   # creates tables, seeds data on first run, starts the live simulator
-npm run smoke               # ~110 automated checks against http://localhost:3000
-```
-Full step-by-step instructions (including deployment) are in the project guide.
+## Technology Stack
 
-## Environment variables
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `DATABASE_SSL` | `true` for hosted DBs (Neon/Render/Railway) |
-| `JWT_SECRET` | >= 32 random characters (required in production) |
-| `SEED_PASSWORD` | password of all seeded demo users |
-| `PUBLIC_URL` | public base URL (used in `Location` / pagination links) |
-| `AUTO_SEED`, `SIMULATOR` | `true` by default |
-| `RETENTION_DAYS` | readings older than this are purged (default 14) |
-| `HIDE_OUT_OF_SCOPE` | `true` => 404 instead of 403 for out-of-jurisdiction resources |
+Node.js · Express.js · PostgreSQL · Neon · JWT · Swagger/OpenAPI · Git/GitHub
 
-## Seed data
-9 provinces · 25 districts · 50 grid substations · 250 installations · 7 days x 96 readings per installation (≈168,000 rows) with a realistic diurnal curve, regional weather and a cumulative energy register.
+## Getting Started
 
-| Role | Example login (password = `SEED_PASSWORD`) | Can |
+**Requirements:** Node.js, npm, and a Neon PostgreSQL database.
+
+1. Install dependencies: `npm install`
+2. Copy `.env.example` to `.env` and configure the required environment variables.
+3. Start the development server: `npm run dev`
+4. Use the configured seed scripts to initialise demonstration data if needed.
+
+## Seed Data
+
+The seed process generates:
+
+- 9 provinces, 25 districts, 50 grid substations, and 250 installations.
+- 7 days of readings at 15-minute intervals: 96 readings per installation per day, producing approximately **168,000 readings**.
+- Realistic daily generation curves, regional weather variation, and a cumulative energy register.
+
+## Demo Accounts and Permissions
+
+All demo user passwords are configured through `SEED_PASSWORD`.
+
+| Role | Example login | Access |
 |---|---|---|
-| admin | `admin@slsea.example` | national read + manage substations/installations/users, retract readings |
-| national | `national@slsea.example` | read everything |
-| provincial | `provincial.western@slsea.example` (also `.central`, `.southern`, `.northern`, `.eastern`, `.north-western`, `.north-central`, `.uva`, `.sabaragamuwa`) | read own province only |
-| district | `district.colombo@slsea.example` (+ one per district, e.g. `district.jaffna`) | read own district only |
-| device | `meter_id` `SLSEA-MTR-0001` + secret from `npm run device-secret -- SLSEA-MTR-0001` (also printed in the first-boot log) | `POST` readings for its own installation only |
+| Admin | `admin@slsea.example` | National read access; manage substations, installations, and users; retract readings |
+| National | `national@slsea.example` | Read all data |
+| Provincial | `provincial.western@slsea.example` | Read own province only |
+| District | `district.colombo@slsea.example` | Read own district only |
+| Device | `SLSEA-MTR-0001` | Submit readings for its assigned installation only |
 
-## Endpoint summary (base `/api/v1`)
-| Method & path | Resource type | Notes |
-|---|---|---|
-| `POST /tokens` | token issuance | users `{email,password}` or devices `{meter_id,device_secret}` -> JWT |
-| `GET /provinces`, `/provinces/{id}`, `/provinces/{id}/districts` | collection / atomic / scoped collection | |
-| `GET /districts/{id}`, `/districts/{id}/grid-substations` | atomic / scoped collection | admin `POST` creates a substation |
-| `GET/PUT/PATCH/DELETE /grid-substations/{id}` | atomic | PUT = full replace, PATCH = partial, `If-Match` => 412 |
-| `GET /grid-substations/{id}/installations` | scoped collection | admin `POST` registers an installation (201 + Location + one-time device secret) |
-| `GET /installations` | collection | filters `province_id`, `district_id`, `substation_id`, `status`, `q`; sort; pagination |
-| `GET/PUT/PATCH/DELETE /installations/{id}` | atomic | |
-| `GET /installations/{id}/overview` | **composite** | installation + hierarchy + latest reading + today stats |
-| `GET /installations/{id}/latest-reading` | **derived** (operational) | newest reading + freshness + utilisation |
-| `GET /installations/{id}/readings` | scoped sub-collection (analytical) | pagination (count + next/prev), `from`/`to`, `sort=-timestamp` |
-| `POST /installations/{id}/readings` | ingestion (device) | 201 + Location; identical retry 200; conflict 409 |
-| `GET/DELETE /installations/{id}/readings/{rid}` | atomic | PUT/PATCH => 405 (append-only) |
-| `GET /readings` | collection | cross-installation history filtered by province/district/substation/time |
-| `GET /districts/{id}/generation-summary`, `/provinces/{id}/generation-summary` | **processing** | current kW, today's kWh, per-substation breakdown |
-| `GET /users/me`; admin: `/users` CRUD | | |
+Provincial and district accounts are also seeded for the other relevant areas. Retrieve a device secret using `npm run device-secret -- SLSEA-MTR-0001`; keep it private.
 
-Cross-cutting: one error schema `{error:{code,message,status,details[],path,timestamp,request_id}}`; `ETag` + `Last-Modified` + `304`; `406` for non-JSON `Accept`; `415`; `405` + `Allow`; rate limiting; Helmet; HTTPS enforcement in production.
+## System Architecture
 
-## Project layout
-```
-src/server.js          start-up: migrate -> listen -> seed -> simulator
-src/app.js             middleware pipeline, docs, health
-src/schema.js          PostgreSQL schema
-src/seed.js            reference data, users, installations, history
-src/sim/               generator (diurnal model) + live simulator
-src/routes/            tokens, hierarchy, installations, readings, summaries, users
-src/middleware/auth.js JWT verification + scope checks
-src/utils/             errors, validation, pagination/ETag helpers, jurisdiction scoping, serializers
-src/docs/openapi.js    OpenAPI 3 document (served live)
-scripts/smoke.js       end-to-end verification suite
-docs/er-diagram.*      entity-relationship diagram
-```
+Clients (users and metering devices) → Express.js REST API → Authentication and authorisation middleware → Request validation and route handlers → Neon-hosted PostgreSQL database.
+
+## Live API
+
+- **Base URL:** `https://nb6007-solar-api-web-api-cw.onrender.com`
+- **Swagger Documentation:** ` https://nb6007-solar-api-web-api-cw.onrender.com/api-docs`
+- **Health Check:** ` https://nb6007-solar-api-web-api-cw.onrender.com/health`
+-
+
+## Local API
+- **Base URL:** `http://localhost:3000`
+- - **Swagger UI:** `http://localhost:3000/api-docs`
+- - **Health Check:** `http://localhost:3000/health`
+
+## Testing
+
+Test the API using Swagger UI and the automated test scripts configured in `package.json`. Verify authentication, jurisdiction restrictions, reading submission, invalid input, error responses, and database operations. Report only test results that have actually been run.
+
+## Deployment
+
+The API can be deployed to a Node.js hosting platform such as Render and connected to Neon PostgreSQL. Add the verified live API and Swagger URLs after deployment and test them.
+
+## Environment Variables
+
+Configure the variables required by `.env.example`, including:
+
+- `DATABASE_URL` — Neon PostgreSQL connection string
+- `DATABASE_SSL` — database SSL configuration
+- `JWT_SECRET` — token-signing secret
+- `SEED_PASSWORD` — demo account password
+- `PORT` and `NODE_ENV` — server configuration
+
+
+**Index Number:** COBSCCOMP251P-067
